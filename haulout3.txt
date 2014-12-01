@@ -1,0 +1,107 @@
+data {
+	pi <- 3.141592653589
+	Omega[1,1] <- 1
+	Omega[1,2] <- 0
+	Omega[2,1] <- 0
+	Omega[2,2] <- 1
+	first.loc[1] <- y[1,1]
+	first.loc[2] <- y[1,2]
+	}
+model
+{
+# Haulout1 - DCRWS with 3 states [hauled out, not hauled out; fast, slow movement | not hauled out]
+#    Created by Ian Jonsen & Sophie Bestley, 11/11/2014, last modified, 13/11/2014
+
+## priors on process uncertainty
+iSigma[1:2,1:2] ~ dwish(Omega[,], 2)
+Sigma[1:2,1:2] <- inverse(iSigma[,])
+
+tmp[1] ~ dbeta(20, 20)
+tmp[2] ~ dbeta(1, 1)
+tmp[3] ~ dbeta(1, 1)
+theta[1] <- (2 * tmp[1] - 1) * pi
+theta[2] <- tmp[2] * pi * 2
+theta[3] <- tmp[3] * pi * 2
+
+gamma[1] ~ dbeta(2, 1.5) 		## prior for gamma in b=1
+dev[1] ~ dbeta(1, 1)			## rnd deviate to ensure gamma[2] > gamma[1]
+dev[2] ~ dbeta(1, 1)
+gamma[2] <- gamma[1] * dev[1]
+gamma[3] <- gamma[2] * dev[2]
+
+# Priors for prob of switching
+a[1,1] <- 1
+a[1,2] <- 1
+a[1,3] <- 0
+a[2,1] <- 1
+a[2,2] <- 1
+a[2,3] <- 0
+a[3,1] <- 1
+a[3,2] <- 1
+a[3,3] <- 1
+
+phi[1,1:3] ~ ddirch(a[1,1:3])
+phi[2,1:3] ~ ddirch(a[2,1:3])
+phi[3,1:3] ~ ddirch(a[3,1:3])
+
+aa[1,1] <- 1
+aa[1,2] <- 1
+aa[1,3] <- 1
+lambda[1:3] ~ ddirch(aa[1,1:3])
+
+# estimate initial haulout (h) and behavioural (b) states
+z[1,1] <- ho[1] 					# Pr(hauled out)
+z[1,2] <- 1-ho[1]					# Pr(not hauled out)
+h[1] ~ dcat(z[1,1:2])
+v[1,1] <- lambda[1]*(h[1]-1)		# Pr(fast | not hauled out)
+v[1,2] <- lambda[2]*(h[1]-1)		# Pr(slow | not hauled out)
+v[1,3] <- 1-step(h[1]-2)			# Pr(hauled out)
+b[1] ~ dcat(v[1,1:3])
+
+logpsi ~ dunif(-10, 10)		## inflation/deflation factor for estimation error
+psi <- exp(logpsi)
+
+## Priors for first location
+for(k in 1:2){
+	x[1,k] ~ dt(first.loc[k], itau2[1,k] * psi, nu[1,k])
+	}
+
+## Assume simple random walk to estimate 2nd regular position
+x[2,1:2] ~ dmnorm(x[1,], iSigma[,])
+
+## Transition equation
+for(t in 2:(RegN-1)){
+	z[t,1] <- ho[t] 					# Pr(hauled out)
+	z[t,2] <- 1-ho[t]					# Pr(not hauled out)
+	h[t] ~ dcat(z[t,1:2])
+	v[t,1] <- phi[b[t-1],1]*(h[t]-1)	# Pr(fast | not hauled out)
+	v[t,2] <- phi[b[t-1],2]*(h[t]-1)	# Pr(slow | not hauled out)
+	v[t,3] <- 1-step(h[t]-2)			# Pr(hauled out)
+	b[t] ~ dcat(v[t,1:3])
+
+  Tdx[t,1] <- cos(theta[b[t]]) * (x[t,1] - x[t-1,1]) + sin(theta[b[t]]) * (x[t,2] - x[t-1,2])
+  x.mn[t,1] <- x[t,1] +  Tdx[t,1] * gamma[b[t]]
+  Tdx[t,2] <- -sin(theta[b[t]]) * (x[t,1] - x[t-1,1]) + cos(theta[b[t]]) * (x[t,2] - x[t-1,2])
+  x.mn[t,2] <- x[t,2] +  Tdx[t,2] * gamma[b[t]]
+  x[t+1,1:2] ~ dmnorm(x.mn[t,], iSigma[,])
+	}
+
+## estimate final b
+z[RegN,1] <- ho[RegN]
+z[RegN,2] <- 1-ho[RegN]
+h[RegN] ~ dcat(z[RegN,1:2])
+v[RegN,1] <- phi[b[RegN-1],1]*(h[RegN]-1)
+v[RegN,2] <- phi[b[RegN-1],2]*(h[RegN]-1)
+v[RegN,3] <- 1-step(h[RegN]-2)
+b[RegN] ~ dcat(v[RegN,1:3])
+
+##	Measurement equation
+for(t in 2:RegN){
+	for(i in idx[t-1]:(idx[t]-1)){
+		for(k in 1:2){
+			zhat[i,k] <- (1-j[i]) * x[t-1,k] + j[i] * x[t,k]
+			y[i,k] ~ dt(zhat[i,k], itau2[i,k] * psi, nu[i,k])
+			} #k
+		} #i
+	}	#t
+} #end
