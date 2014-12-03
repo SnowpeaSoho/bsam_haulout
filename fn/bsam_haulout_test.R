@@ -48,5 +48,4 @@ save(fit,dat1,file=paste("output/",dat1[[1]]$id[1],"haulout3.RData",sep=""))
 
 plot.output(fit,dat1,map_range=c(77.5,82,-68.5,-66.75),haulout4=FALSE)
 
-table(dat1[[1]]$ho>0.5)
-length(which(fit[[1]]$summary$b>2))
+table(dat1[[1]]$ho>0.5,fit[[1]]$summary$b.5)
