@@ -44,9 +44,9 @@ fit <- ssm(loc.list=dat1, model="haulout3", LM=FALSE, HO=TRUE,
             adapt=n.burn, samples=n.iter, thin=n.thin, chains=n.chains)
 cat("Elapsed time: ", round((proc.time() - st)[3]/60,2), "min \n")
 
-save(fit,dat1,file=paste("output/",dat1[[1]]$id[1],"haulout4.RData",sep=""))
+save(fit,dat1,file=paste("output/",dat1[[1]]$id[1],"haulout3.RData",sep=""))
 
-plot.output(fit,dat1,map_range=c(73,87,-70,-66),haulout4=TRUE)
+plot.output(fit,dat1,map_range=c(77.5,82,-68.5,-66.75),haulout4=FALSE)
 
-table(dat1[[1]]$ho)
+table(dat1[[1]]$ho>0.5)
 length(which(fit[[1]]$summary$b>2))
