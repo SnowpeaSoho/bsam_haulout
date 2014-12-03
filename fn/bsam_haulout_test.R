@@ -29,16 +29,15 @@ xyplot(lat~lon|id,data=dat,xlim=c(73,87),ylim=c(-70,-66),type="b",col="black")
 use <- dat4jags(dat,tstep=tstep,tod=tod)
 ho.check <- check.haulouts.tstep(use,hauldat)
 ho.check$HO_cnt
-use2 <- ho.check[[1]]
 
 # go directly to case study animal
 id <- 2
-use2[[id]]$id <- factor(use2[[id]]$id,levels=unique(use2[[id]]$id))
-dat1 <- use2[[id]]
+dat1 <- ho.check[[1]][[id]]
+dat1$id <- factor(dat1$id,levels=unique(dat1$id))
 dat1 <- list(dat1)
 names(dat1[[1]])[11] <- "ho"
 xyplot(lat~lon|id,data=dat,xlim=c(73,87),ylim=c(-70,-66),
-  type="b",col="black",subset=dat$id==unique(use2[[id]]$id)
+  type="b",col="black",subset=as.character(dat$id)==unique(dat1[[1]]$id))
 
 st = proc.time()
 fit <- ssm(loc.list=dat1, model="haulout3", LM=FALSE, HO=TRUE,
